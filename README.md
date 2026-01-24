@@ -1,9 +1,14 @@
-# ATTiny85 Project (Pro Micro ISP)
+# Tiny ADSR - ATTiny85 & MCP4725
 
-Bu proje, Arduino Pro Micro'yu ISP programlayıcı olarak kullanarak ATTiny85 programlamak için hazırlandı.
+Bu proje, ATtiny85 mikrodenetleyicisi ve MCP4725 DAC kullanarak düşük seviyeli (low-level) bir ADSR zarf üreteci (envelope generator) projesidir.
+
+**Credits:**
+- **Lead Designer:** Arda Eden
+- **Coder:** Antigravity (AI Coding Assistant by Google DeepMind)
 
 ## Dosya Yapısı
-- `src/main.c`: Blink kodu.
+- `src/adsr.c`: ADSR durum makinesi ve temel mantık.
+- `src/main.c`: Test ve başlangıç kodları.
 - `Makefile`: Derleme ve yükleme komutlarını içeren dosya.
 
 ## Kullanım
