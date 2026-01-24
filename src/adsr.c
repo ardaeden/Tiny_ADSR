@@ -74,12 +74,12 @@ uint16_t adc_read(void) {
 void update_pots(uint8_t gate) {
   // Read first channel (S0 = 0)
   PORTB &= ~(1 << ADDR_S0);
-  _delay_us(10);
+  _delay_us(1); // Reduced settling delay
   uint16_t val0 = adc_read();
 
   // Read second channel (S0 = 1)
   PORTB |= (1 << ADDR_S0);
-  _delay_us(10);
+  _delay_us(1); // Reduced settling delay
   uint16_t val1 = adc_read();
 
   if (gate) {
@@ -167,7 +167,7 @@ int main(void) {
     }
 
     dac_write(current_value);
-    _delay_ms(1); // Small delay for timing stability
+    // Artificial delay removed for maximum performance
   }
 
   return 0;

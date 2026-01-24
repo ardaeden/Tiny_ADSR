@@ -8,9 +8,8 @@
 /* Address */
 #define DAC_ADDR 0x60
 
-/* Pure Bit-Bang I2C for Maximum Reliability */
-
-#define I2C_DELAY 10 // microseconds
+/* Turbo Bit-Bang I2C - Optimized for 400kHz (Fast Mode) @ 8MHz */
+#define I2C_DELAY 1 // microseconds for ~400kHz
 
 static inline void sda_high() {
   DDRB &= ~(1 << SDA_PIN); // Input mode (effectively high due to pull-up)
@@ -95,17 +94,11 @@ void dac_write(uint16_t value) {
 int main(void) {
   i2c_init();
 
-  // 0V to 5V (4095 / 5 = 819 per volt)
-  uint16_t levels[] = {0, 819, 1638, 2457, 3276, 4095};
-
+  uint16_t val = 0;
   while (1) {
-    for (uint8_t i = 0; i < 6; i++) {
-      dac_write(levels[i]);
-      // 2 seconds delay (approx)
-      for (uint8_t s = 0; s < 20; s++) {
-        _delay_ms(100);
-      }
-    }
+    dac_write(val);
+    val = (val + 16) & 0x0FFF; // High-speed sawtooth ramp (0-4095)
+    // No artificial delay - running at maximum I2C throughput
   }
 
   return 0;
