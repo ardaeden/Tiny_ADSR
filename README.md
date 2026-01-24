@@ -2,9 +2,6 @@
 
 Bu proje, ATtiny85 mikrodenetleyicisi ve MCP4725 DAC kullanarak düşük seviyeli (low-level) bir ADSR zarf üreteci (envelope generator) projesidir.
 
-**Credits:**
-- **Lead Designer:** Arda Eden
-- **Coder:** Antigravity (AI Coding Assistant by Google DeepMind)
 
 ## Dosya Yapısı
 - `src/adsr.c`: ADSR durum makinesi ve temel mantık.
@@ -34,3 +31,7 @@ make flash
 - **Pin 14 (MISO)** -> Pin 6 (MISO/PB1)
 - **Pin 15 (SCLK)** -> Pin 7 (SCK/PB2)
 - **Pin 16 (MOSI)** -> Pin 5 (MOSI/PB0)
+
+**Credits:**
+- **Lead Designer:** Arda Eden
+- **Coder:** Antigravity (AI Coding Assistant by Google DeepMind)
