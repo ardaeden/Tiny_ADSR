@@ -11,10 +11,10 @@ OBJCOPY = avr-objcopy
 CFLAGS = -Wall -Os -DF_CPU=$(F_CPU) -mmcu=$(MCU)
 
 # Target name
-TARGET = blink
+TARGET = tiny_adsr
 
 # Source files
-SRC = src/main.c
+SRC = src/adsr.c
 
 all: build
 
