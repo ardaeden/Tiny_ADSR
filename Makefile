@@ -24,7 +24,7 @@ $(TARGET).elf: $(SRC)
 	$(CC) $(CFLAGS) -o $@ $^
 
 $(TARGET).hex: $(TARGET).elf
-	$(OBJCOPY) -O ihex $< $@
+	$(OBJCOPY) -R .eeprom -R .fuse -R .lock -R .signature -O ihex $< $@
 
 flash: build
 	avrdude -p $(MCU) -c $(PROGRAMMER) -P $(PORT) -b $(BAUD) -U flash:w:$(TARGET).hex:i

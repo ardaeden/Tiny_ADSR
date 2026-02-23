@@ -1,5 +1,7 @@
+#include <avr/eeprom.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
+#include <stdint.h>
 #include <util/delay.h>
 
 /* Pin Definitions */
@@ -17,6 +19,16 @@ typedef enum { IDLE, ATTACK, DECAY, SUSTAIN, RELEASE } ADSR_State;
 volatile ADSR_State state = IDLE;
 volatile uint16_t current_value = 0;
 volatile uint16_t pot_A = 0, pot_D = 0, pot_S = 0, pot_R = 0;
+
+// Morphing and Speed settings
+uint16_t morph_A = 512, morph_D = 512, morph_R = 512;
+uint16_t speed_val = 256;
+
+// EEPROM Addresses
+uint16_t EEMEM ee_morph_A = 512;
+uint16_t EEMEM ee_morph_D = 512;
+uint16_t EEMEM ee_morph_R = 512;
+uint16_t EEMEM ee_speed_val = 256;
 
 /* Turbo Bit-Bang I2C - Adjusted for better stability */
 #define I2C_DELAY 2 // Increased for communication reliability
@@ -101,6 +113,22 @@ void dac_write(uint16_t value) {
   i2c_stop();
 }
 
+/* Morphing Math */
+uint16_t apply_morph(uint16_t val, uint16_t morph) {
+  uint32_t lin = val;
+  uint32_t expo = (uint32_t)val * val >> 12;
+  uint32_t log_val = 4095 - ((uint32_t)(4095 - val) * (4095 - val) >> 12);
+
+  if (morph < 512) {
+    // Morph between EXPO and LIN
+    return (uint16_t)((expo * (511 - morph) + lin * morph) >> 9);
+  } else {
+    // Morph between LIN and LOG
+    uint16_t m = morph - 512;
+    return (uint16_t)((lin * (511 - m) + log_val * m) >> 9);
+  }
+}
+
 /* ADC Functions */
 void adc_init(void) {
   ADMUX = (1 << MUX1) | (1 << MUX0);                  // ADC3 (PB3)
@@ -136,6 +164,43 @@ void update_pots(uint8_t gate) {
   }
 }
 
+void config_mode(void) {
+  // Signal entry with flash
+  for (uint8_t i = 0; i < 3; i++) {
+    dac_write(4095);
+    _delay_ms(100);
+    dac_write(0);
+    _delay_ms(100);
+  }
+
+  // While GATE is held, adjust morphing using R pot as master
+  // and Speed using S pot
+  while (PINB & (1 << GATE_IN)) {
+    update_pots(1); // Read S and R
+
+    morph_A = pot_R;
+    morph_D = pot_R;
+    morph_R = pot_R;
+    speed_val = pot_S + 10; // Range 10 to 1033 (approx 0.04x to 4x)
+
+    _delay_ms(10);
+  }
+
+  // Save to EEPROM
+  eeprom_update_word(&ee_morph_A, morph_A);
+  eeprom_update_word(&ee_morph_D, morph_D);
+  eeprom_update_word(&ee_morph_R, morph_R);
+  eeprom_update_word(&ee_speed_val, speed_val);
+
+  // Signal exit
+  for (uint8_t i = 0; i < 2; i++) {
+    dac_write(2048);
+    _delay_ms(50);
+    dac_write(0);
+    _delay_ms(50);
+  }
+}
+
 int main(void) {
   // Pin setup
   DDRB |= (1 << ADDR_S0);
@@ -143,6 +208,25 @@ int main(void) {
 
   i2c_init();
   adc_init();
+
+  // Load from EEPROM
+  morph_A = eeprom_read_word(&ee_morph_A);
+  if (morph_A > 1023)
+    morph_A = 512;
+  morph_D = eeprom_read_word(&ee_morph_D);
+  if (morph_D > 1023)
+    morph_D = 512;
+  morph_R = eeprom_read_word(&ee_morph_R);
+  if (morph_R > 1023)
+    morph_R = 512;
+  speed_val = eeprom_read_word(&ee_speed_val);
+  if (speed_val > 1100 || speed_val < 5)
+    speed_val = 256; // Default to 1x speed
+
+  // If GATE is held at boot, enter config mode
+  if (PINB & (1 << GATE_IN)) {
+    config_mode();
+  }
 
   // Force DAC to 0V at startup and initialize pots
   dac_write(0);
@@ -168,8 +252,12 @@ int main(void) {
         state = RELEASE;
         break;
       }
-      // Map pot_A to increment (Fast A = high value, Slow A = low value)
-      uint16_t attack_inc = 4095 / (pot_A * 4 + 1);
+      // Map pot_A to increment with speed scaling
+      uint16_t attack_inc =
+          ((uint32_t)4095 * speed_val) / ((uint32_t)256 * (pot_A + 1));
+      if (attack_inc == 0)
+        attack_inc = 1;
+
       if (current_value + attack_inc >= 4095) {
         current_value = 4095;
         state = DECAY;
@@ -184,7 +272,11 @@ int main(void) {
         break;
       }
       target_sustain = pot_S << 2; // ADC 10bit to DAC 12bit
-      uint16_t decay_dec = 4095 / (pot_D * 4 + 1);
+      uint16_t decay_dec =
+          ((uint32_t)4095 * speed_val) / ((uint32_t)256 * (pot_D + 1));
+      if (decay_dec == 0)
+        decay_dec = 1;
+
       if (current_value <= target_sustain + decay_dec) {
         current_value = target_sustain;
         state = SUSTAIN;
@@ -206,7 +298,11 @@ int main(void) {
         state = ATTACK;
         break;
       }
-      uint16_t release_dec = 4095 / (pot_R * 4 + 1);
+      uint16_t release_dec =
+          ((uint32_t)4095 * speed_val) / ((uint32_t)256 * (pot_R + 1));
+      if (release_dec == 0)
+        release_dec = 1;
+
       if (current_value <= release_dec) {
         current_value = 0;
         state = IDLE;
@@ -216,7 +312,9 @@ int main(void) {
       break;
     }
 
-    dac_write(current_value);
+    uint16_t morphed_value = apply_morph(current_value, morph_R);
+
+    dac_write(morphed_value);
     _delay_ms(1); // Small loop delay for stability and better timing control
   }
 
