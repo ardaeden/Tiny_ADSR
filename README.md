@@ -8,6 +8,35 @@ This project is a low-level ADSR envelope generator developed using an **ATtiny8
 - **Multiplexer:** CD4051 (8-channel analog switch)
 - **Inputs:** Gate (Digital), 4x Potentiometers (Analog via MUX)
 - **Outputs:** 0-5V Analog Envelope
+- **Global Morphing:** One-knob control to morph all envelope phases between Exponential, Linear, and Logarithmic curves.
+- **Speed Scaling:** Global timing factor (0.04x to 4x) to scale Attack, Decay, and Release times.
+- **Persistent Memory:** Boot-time settings are stored in internal EEPROM.
+
+---
+
+## Boot Configuration Mode
+
+The Tiny ADSR allows for global parameter customization at power-on.
+
+**To enter Config Mode:** Hold the **GATE** button while powering on the device.
+
+1.  **Entry Signal:** The DAC output/status LED will flash **3 times**.
+2.  **Adjust Settings:**
+    *   **Release (R) Pot:** Adjusts the **Master Curve** morphing (Full Left: Exponential, Center: Linear, Full Right: Logarithmic).
+    *   **Sustain (S) Pot:** Adjusts the **Global Speed** (Full Left: Slow/0.04x scaling, Center: Normal/1x, Full Right: Fast/4x).
+3.  **Exit & Save:** Release the **GATE** button. The DAC will flash **2 times** to confirm that settings have been saved to EEPROM. Normal operation begins immediately.
+
+```text
+[Power On] + [Hold GATE] 
+    |
+    v
+(Flash x3) -> CONFIG MODE
+    |
+    |-- Adj. R Pot -> Set Curve Morphing
+    |-- Adj. S Pot -> Set Global Speed
+    v
+[Release GATE] -> (Flash x2) -> [Normal Operation]
+```
 
 ---
 

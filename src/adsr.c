@@ -21,13 +21,11 @@ volatile uint16_t current_value = 0;
 volatile uint16_t pot_A = 0, pot_D = 0, pot_S = 0, pot_R = 0;
 
 // Morphing and Speed settings
-uint16_t morph_A = 512, morph_D = 512, morph_R = 512;
+uint16_t master_morph = 512;
 uint16_t speed_val = 256;
 
 // EEPROM Addresses
-uint16_t EEMEM ee_morph_A = 512;
-uint16_t EEMEM ee_morph_D = 512;
-uint16_t EEMEM ee_morph_R = 512;
+uint16_t EEMEM ee_master_morph = 512;
 uint16_t EEMEM ee_speed_val = 256;
 
 /* Turbo Bit-Bang I2C - Adjusted for better stability */
@@ -178,18 +176,14 @@ void config_mode(void) {
   while (PINB & (1 << GATE_IN)) {
     update_pots(1); // Read S and R
 
-    morph_A = pot_R;
-    morph_D = pot_R;
-    morph_R = pot_R;
+    master_morph = pot_R;
     speed_val = pot_S + 10; // Range 10 to 1033 (approx 0.04x to 4x)
 
     _delay_ms(10);
   }
 
   // Save to EEPROM
-  eeprom_update_word(&ee_morph_A, morph_A);
-  eeprom_update_word(&ee_morph_D, morph_D);
-  eeprom_update_word(&ee_morph_R, morph_R);
+  eeprom_update_word(&ee_master_morph, master_morph);
   eeprom_update_word(&ee_speed_val, speed_val);
 
   // Signal exit
@@ -210,15 +204,9 @@ int main(void) {
   adc_init();
 
   // Load from EEPROM
-  morph_A = eeprom_read_word(&ee_morph_A);
-  if (morph_A > 1023)
-    morph_A = 512;
-  morph_D = eeprom_read_word(&ee_morph_D);
-  if (morph_D > 1023)
-    morph_D = 512;
-  morph_R = eeprom_read_word(&ee_morph_R);
-  if (morph_R > 1023)
-    morph_R = 512;
+  master_morph = eeprom_read_word(&ee_master_morph);
+  if (master_morph > 1023)
+    master_morph = 512;
   speed_val = eeprom_read_word(&ee_speed_val);
   if (speed_val > 1100 || speed_val < 5)
     speed_val = 256; // Default to 1x speed
@@ -312,7 +300,7 @@ int main(void) {
       break;
     }
 
-    uint16_t morphed_value = apply_morph(current_value, morph_R);
+    uint16_t morphed_value = apply_morph(current_value, master_morph);
 
     dac_write(morphed_value);
     _delay_ms(1); // Small loop delay for stability and better timing control
